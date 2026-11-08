@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?configure DB_PASSWORD}
+    volumes:
+      - data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports: ["8883:8883"]
+    volumes:
+      - ./broker:/mosquitto/config:ro
+    restart: unless-stopped
+  collector:
+    build: .
+    volumes:
+      - ./broker/fullchain.pem:/run/mqtt-ca.pem:ro
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?configure DB_PASSWORD}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?configure MQTT_PASSWORD}
+      SSL_CERT_FILE: /run/mqtt-ca.pem
+      MQTT_HOST: ${MQTT_HOST:?configure MQTT_HOST}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports: ["127.0.0.1:8080:8080"]
+    restart: unless-stopped
+volumes:
+  data:
+

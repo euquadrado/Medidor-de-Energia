@@ -1,0 +1,6 @@
+.env
+broker/*.pem
+broker/passwords
+aws_known_hosts
+__pycache__/
+esp-password

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel de energia</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eff5f4;color:#17332e;font:16px system-ui}main{max-width:980px;margin:auto;padding:24px}header{padding:18px 0}h1{font-size:clamp(2rem,6vw,3.5rem);margin:0}h2{margin-top:0}.muted{color:#49605b}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}.card,section{background:#fff;border:1px solid #d9e5e1;border-radius:16px;padding:18px;margin-bottom:14px}strong{display:block;font-size:1.45rem;margin-top:6px}nav{display:flex;gap:8px;flex-wrap:wrap}a,button{color:#07594b}nav a,button{border:1px solid #bdd1cb;padding:8px 12px;border-radius:8px;background:white;text-decoration:none}nav a[aria-current=true],button{background:#07594b;color:white}.plot{display:flex;align-items:end;height:180px;gap:3px;margin:16px 0}.slot{flex:1;min-width:0;display:flex;align-items:end;height:100%;border-bottom:1px solid #ccdcd7}.bar{width:100%;border-radius:4px 4px 0 0;background:#087d68}.empty{background:#e3edeb}input{max-width:100%;padding:8px;border:1px solid #8ca9a1;border-radius:8px}details{margin-top:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:6px;border-bottom:1px solid #ddd}pre{overflow:auto}
+</style>
+<main><header><p class="muted">MONITORAMENTO • HORÁRIO DE BRASÍLIA</p><h1>Painel de energia</h1>
+<p>{{ ('Última leitura: ' ~ last_time) if last_time else 'Aguardando a primeira leitura MQTT.' }}</p></header>
+<div class="grid">{% for key,(name,size) in periods.items() %}<div class="card">{{ name }}<strong>{{ fmt(totals[key]) }}{% if totals[key] is not none %} kWh{% endif %}</strong></div>{% endfor %}</div>
+<section><h2>Consumo por período</h2><nav aria-label="Período">{% for key,(name,size) in periods.items() %}<a href="?periodo={{key}}" aria-current="{{'true' if key==period else 'false'}}">{{name}}</a>{% endfor %}</nav>
+{% if totals[period] is not none %}
+<div class="plot" aria-hidden="true">{% for label,value in points %}<div class="slot" title="{{label}}: {{fmt(value)}}"><div class="bar {{'empty' if value is none}}" style="height:{{max_height(value, peak)}}%"></div></div>{% endfor %}</div>
+<details><summary>Ver valores em tabela</summary><table><thead><tr><th>Intervalo</th><th>kWh</th></tr></thead><tbody>{% for label,value in points %}<tr><td>{{label}}</td><td>{{fmt(value)}}</td></tr>{% endfor %}</tbody></table></details>
+{% else %}<p>São necessárias pelo menos duas leituras válidas do contador acumulado para calcular consumo neste período.</p>{% endif %}
+<p class="muted">Diferenças do contador em kWh são atribuídas ao horário da leitura final. “—” indica ausência de dados. O período atual é parcial.{% if resets or gaps %} No histórico analisado: {{resets}} reinícios do contador e {{gaps}} intervalos acima de 5 minutos. Um intervalo longo pode deslocar consumo entre períodos.{% endif %}</p></section>
+<section><h2>ESP32</h2><form method="post" action="/?periodo={{period}}"><label for="ip">IP local do Tasmota</label><br><input id="ip" name="ip" value="{{ip}}" required> <button>Salvar IP</button></form>
+<p><a href="http://{{ip}}/">Abrir Tasmota na rede local</a></p><p class="muted">A coleta continua pelo MQTT mesmo com o painel fechado.</p>
+{% if latest %}<details><summary>Dados da última leitura</summary><pre>{{latest[1]|tojson(indent=2)}}</pre></details>{% endif %}</section></main></html>

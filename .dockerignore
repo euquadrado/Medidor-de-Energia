@@ -1,0 +1,6 @@
+.env
+broker/
+.git/
+aws_known_hosts
+__pycache__/
+esp-password

@@ -1,0 +1,5 @@
+user esp32
+topic write tele/tasmota_D2A95C/#
+
+user collector
+topic read tele/tasmota_D2A95C/SENSOR
