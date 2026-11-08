@@ -69,3 +69,20 @@ Para criar ou trocar a senha do usuario admin, na EC2 execute:
 
 A senha e independente do MQTT e do login PostgreSQL. Nginx termina
 o HTTPS; o Python protege tanto o painel quanto a API.
+
+### Gestão e retenção
+
+O início (/gestao) usa ENERGY.Total para estimar kWh e custo com a tarifa
+e bandeira manuais. O medidor atual fornece um contador acumulado único;
+não há rateio entre circuitos. O relatório separa aberto/fechado pelo
+horário configurado e atribui cada diferença ao instante da leitura final.
+A aba /leituras mantém a série por minuto e o IP local editável.
+
+O backup exporta readings, settings e maintenance em JSONL gzip, sem
+credenciais. É um arquivo de dados, não um dump integral do PostgreSQL.
+A exclusão manual só remove leituras anteriores à data indicada, após
+confirmar com EXCLUIR. Não há expiração automática. PostgreSQL reutiliza
+o espaço das linhas excluídas, mas o arquivo pode não diminuir de imediato.
+
+SUPORTE_WA pode ser injetada no ambiente do coletor (código do país e
+número, somente dígitos) para exibir o link de suporte.

@@ -1,5 +1,6 @@
 import ipaddress
 from datetime import date, datetime, time, timedelta
+from business import register
 from energy import PERIODS, ZONE, start_of, summarize
 import json
 import logging
@@ -28,6 +29,7 @@ def initialize():
             received_at timestamptz NOT NULL DEFAULT now(),
             topic text NOT NULL, payload jsonb NOT NULL
         )""")
+        conn.execute("CREATE TABLE IF NOT EXISTS maintenance (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, service_day date NOT NULL, note text NOT NULL)")
         conn.execute("CREATE TABLE IF NOT EXISTS web_users (username text PRIMARY KEY, password_hash text NOT NULL)")
         conn.execute("CREATE INDEX IF NOT EXISTS readings_topic_time ON readings (topic, received_at, id)")
         conn.execute("""CREATE TABLE IF NOT EXISTS settings (
@@ -84,7 +86,12 @@ def on_message(client, userdata, message):
         client.ack(message.mid, message.qos)
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.get("/")
+def home():
+    return redirect("/gestao")
+
+
+@app.route("/leituras", methods=["GET", "POST"])
 def panel():
     with db() as conn:
         if request.method == "POST":
@@ -96,7 +103,7 @@ def panel():
                 return "Informe um IPv4 valido", 400
             conn.execute("""INSERT INTO settings VALUES ('esp_ip', %s)
                 ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value""", (address,))
-            return redirect("/")
+            return redirect("/leituras#dispositivo")
         row = conn.execute("SELECT value FROM settings WHERE name='esp_ip'").fetchone()
         latest = conn.execute(
             "SELECT received_at, payload FROM readings ORDER BY id DESC LIMIT 1"
@@ -155,6 +162,8 @@ def minute_readings():
     ])
     response.headers["Cache-Control"] = "no-store"
     return response
+
+register(app, db, TOPIC)
 
 if __name__ == "__main__":
     initialize()

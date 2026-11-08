@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="{{cfg.theme}}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{cfg.store}} · Energia</title>
+<style>
+:root{color-scheme:dark;--bg:#0a1220;--card:#142237;--fg:#ecf3fa;--muted:#a8b8cb;--line:#3c526e;--accent:#2dd4bf;--ink:#071a25}
+:root[data-theme=light]{color-scheme:light;--bg:#f1f5fc;--card:#fff;--fg:#14243a;--muted:#4a5e75;--line:#bac9d9;--accent:#087468;--ink:white}
+@media(prefers-color-scheme:light){:root[data-theme=auto]{color-scheme:light;--bg:#f1f5fc;--card:#fff;--fg:#14243a;--muted:#4a5e75;--line:#bac9d9;--accent:#087468;--ink:white}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px system-ui}main{max-width:980px;margin:auto;padding:20px}
+nav,.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}nav b{margin-right:auto}h1{font-size:clamp(2rem,7vw,3.3rem);margin:8px 0}
+header,section{margin-bottom:16px}section,.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin:16px 0}.card strong{font-size:1.55rem;display:block;margin:5px 0}
+small,.muted{color:var(--muted)}h2{margin-top:0}a{color:var(--accent)}a.btn,button{border:1px solid var(--line);padding:8px 12px;border-radius:8px;background:var(--card);color:var(--fg);text-decoration:none;font:inherit;cursor:pointer}
+a.current,button.primary{background:var(--accent);color:var(--ink)}input,select,textarea{width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+label{display:block}input[type=checkbox]{width:auto}.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin:12px 0}
+.bar{position:relative;height:12px;border-radius:8px;background:var(--line);margin:10px 0}.fill{height:100%;border-radius:inherit;background:var(--accent)}.marker{position:absolute;top:-3px;height:18px;border-left:2px solid var(--fg)}
+table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}.scroll{overflow:auto}.offline{opacity:.58}.alert{padding:10px;border-left:3px solid #ec9d22}
+@media print{body,section,.card{background:white;color:black}nav,.actions,.noprint{display:none!important}section{break-inside:avoid}}
+</style>
+<main>
+<nav class="noprint"><b>⚡ Energia</b><a class="btn" href="/gestao">Início</a><a class="btn" href="/leituras">Minuto a minuto</a><a class="btn" href="#ajustes">Ajustes</a><a class="btn" href="#dados">Dados</a></nav>
+<header><p class="muted">{{ 'RELATÓRIO DE ENERGIA' if report else 'CONSUMO E CUSTO DE ENERGIA' }}</p><h1>{{cfg.store}}</h1>
+<div class="actions">{% for key,label in [('hoje','Hoje'),('ontem','Ontem'),('mes','Este mês')] %}<a class="btn {{'current' if key==period}}" href="{{'/relatorio' if report else '/gestao'}}?periodo={{key}}">{{label}}</a>{% endfor %}
+{% if not report %}<form method="post" action="/gestao/ajustes"><button name="toggle" value="1">{{'Sair do modo fechado' if cfg.closed else 'Ativar modo fechado'}}</button></form>{% endif %}
+{% if report %}<button onclick="window.print()">Imprimir / salvar PDF</button>{% endif %}</div></header>
+<div class="grid"><div class="card">Custo estimado<strong>{{('R$ '~br(cost)) if cost is not none else '—'}}</strong>{% if rate is none %}<a href="#ajustes">Informe a tarifa</a>{% endif %}</div>
+<div class="card">Energia medida<strong>{{br(total)}}{% if total is not none %} kWh{% endif %}</strong></div>
+<div class="card">Fora do horário<strong>{{('R$ '~br(outside*rate)) if outside is not none and rate is not none else '—'}}</strong><small>{{br(outside)}} kWh</small></div>
+<div class="card">Comparação com período anterior<strong>{% if diff is not none %}R$ {{br(diff|abs)}} {{'a menos' if diff<0 else 'a mais' if diff>0 else 'de diferença'}}{% else %}—{% endif %}</strong></div></div>
+<p class="muted">Estimativa com a tarifa atual, sem cobranças fixas. A comparação não prova que o aplicativo gerou economia. Fora do horário inclui equipamentos que precisam continuar ligados.</p>
+<section><h2>Equipamento monitorado</h2>
+<div class="{{'offline' if age is none or age>=120}}"><b>{{cfg.equipment}}</b><p>{{('Online · há '~age~' s') if age is not none and age<120 else 'Offline · verificar conexão'}}</p>
+{% if total is not none %}<div class="bar"><div class="fill" style="width:{{100 if total>0 else 0}}%"></div></div>{{br(total)}} kWh{% if cost is not none %} · R$ {{br(cost)}}{% endif %}{% if total>0 %} · 100% do consumo medido{% endif %}{% endif %}</div>
+<small>Há um contador acumulado identificado neste medidor. O total não é dividido entre circuitos sem medições individuais.</small></section>
+{% if not report %}
+<section><h2>Meta mensal</h2>{% if pace is not none %}<p>R$ {{br(month_cost)}} de R$ {{br(cfg.goal|float)}} · {{br(pace)}}%</p>
+<div class="bar" aria-label="Gasto contra a meta"><div class="fill" style="width:{{[100,pace]|min}}%;background:{{'#2dd4bf' if pace<=expected else '#fbbf24' if pace<=expected+10 and pace<100 else '#fb7185'}}"></div><span class="marker" style="left:{{expected}}%"></span></div><small>Marca: {{br(expected)}}% do mês passou.</small>{% else %}<p>Defina a meta e a tarifa nos Ajustes. A barra aparece quando houver consumo medido.</p>{% endif %}</section>
+<section><h2>Alertas</h2>{% if cfg.closed %}<p>Alertas de consumo pausados pelo modo fechado.</p>{% elif alerts %}{% for a in alerts %}<p class="alert">{{a}} <a href="https://wa.me/?text={{(cfg.store ~ ' · ' ~ a)|urlencode}}" target="_blank" rel="noopener">Abrir no WhatsApp</a></p>{% endfor %}{% else %}<p>Sem alertas no momento.</p>{% endif %}<small>Os alertas são calculados a partir das medições disponíveis. O WhatsApp abre a mensagem para envio manual.</small></section>
+<section><h2>Custo por unidade produzida</h2><label>Unidades produzidas no período <input id="units" type="number" min="1" step="1" placeholder="Ex.: 100"></label><p id="unit-cost" aria-live="polite">Informe a quantidade produzida.</p></section>
+{% endif %}
+<section id="relatorio"><h2>Resumo por dia</h2><div class="actions"><a class="btn" href="/gestao/csv?periodo={{period}}">Exportar CSV</a>{% if not report %}<a class="btn" href="/relatorio?periodo={{period}}">Relatório / PDF</a>{% endif %}</div>
+<div class="scroll"><table><thead><tr><th>Dia</th><th>Total kWh</th><th>Aberto kWh</th><th>Fechado kWh</th><th>Custo</th></tr></thead><tbody>{% for d,v,f in days %}<tr><td>{{d.strftime('%d/%m/%Y')}}</td><td>{{br(v)}}</td><td>{{br(v-f)}}</td><td>{{br(f)}}</td><td>{{('R$ '~br(v*rate)) if rate is not none else '—'}}</td></tr>{% else %}<tr><td colspan="5">Sem dados suficientes no período.</td></tr>{% endfor %}</tbody></table></div></section>
+{% if not report %}
+<section id="manutencao"><h2>Manutenção</h2><form method="post" action="/gestao/manutencao"><div class="fields"><label>Data <input type="date" name="day" value="{{today}}" max="{{today}}" required></label><label>Serviço <input name="note" maxlength="500" required></label></div><button>Registrar</button></form>
+{% for d,n,b,a in maintenance %}<p><b>{{d.strftime('%d/%m/%Y')}}</b> · {{n}}<br><small>Média nos dias medidos: {{br(b)}} kWh/dia nos 7 dias antes · {{br(a)}} kWh/dia nos 7 dias depois.</small></p>{% endfor %}</section>
+<section id="ajustes"><h2>Ajustes</h2><form method="post" action="/gestao/ajustes"><div class="fields">
+<label>Estabelecimento<input name="store" value="{{cfg.store}}" maxlength="80"></label><label>Nome do equipamento<input name="equipment" value="{{cfg.equipment}}" maxlength="80"></label>
+{% for key,label in [('tariff','Tarifa base (R$/kWh)'),('flag','Adicional da bandeira (R$/kWh)'),('goal','Meta mensal (R$)'),('watts','Limite de potência (W)'),('daily','Limite de custo diário (R$)')] %}<label>{{label}}<input name="{{key}}" value="{{cfg[key]}}" inputmode="decimal"></label>{% endfor %}
+<label>Abre às<input type="time" name="opens" value="{{cfg.opens}}" required></label><label>Fecha às<input type="time" name="closes" value="{{cfg.closes}}" required></label>
+<label>Tema<select name="theme">{% for k,n in [('auto','Automático'),('light','Claro'),('dark','Escuro')] %}<option value="{{k}}" {{'selected' if cfg.theme==k}}>{{n}}</option>{% endfor %}</select></label></div>
+<p><label><input type="checkbox" name="sunday" {{'checked' if cfg.sunday}}> Fecha aos domingos</label><label><input type="checkbox" name="closed" {{'checked' if cfg.closed}}> Modo fechado</label></p><button class="primary">Salvar ajustes</button> <a href="/leituras#dispositivo">Editar IP do Tasmota</a></form>
+<small>O relatório aplica o horário e o modo fechado configurados às leituras exibidas.</small></section>
+<section id="dados"><h2>Dados e backup</h2><a class="btn" href="/gestao/backup">Baixar backup dos dados</a><p class="muted">Arquivo JSONL compactado com leituras, ajustes e manutenção. Não contém senhas. Guarde a cópia antes de excluir dados.</p>
+{% if request.args.get('excluidas','').isdigit() %}<p role="status">{{request.args.get('excluidas')}} leituras excluídas.</p>{% endif %}
+<details><summary>Excluir leituras antigas</summary><form method="post" action="/gestao/excluir"><div class="fields"><label>Excluir tudo antes de<input type="date" name="before" max="{{today}}" required></label><label>Digite EXCLUIR<input name="confirm" required autocomplete="off"></label></div><button>Excluir leituras</button></form></details></section>
+{% if support %}<a href="https://wa.me/{{support|urlencode}}?text={{(cfg.store ~ ' · Medidor D2A95C')|urlencode}}" target="_blank" rel="noopener">Suporte pelo WhatsApp</a>{% endif %}
+<script>
+const units=document.getElementById('units'), amount={{ (cost|float if cost is not none else none)|tojson }};
+units.oninput=()=>{const n=Number(units.value);document.getElementById('unit-cost').textContent=amount===null?'Configure a tarifa e aguarde medições.':Number.isInteger(n)&&n>0?(amount/n).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:4})+' por unidade':'Informe uma quantidade inteira maior que zero.';};
+</script>
+{% endif %}</main></html>

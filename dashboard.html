@@ -15,7 +15,7 @@ nav a[aria-current=true],button{background:#2dd4bf;color:#06121f}
 header{padding:28px 0}h1{background:linear-gradient(120deg,#5eead4,#38bdf8,#a5b4fc);background-clip:text;color:transparent}
 section{scroll-margin-top:14px}
 </style>
-<main><nav class="top"><b>⚡ Energia</b><a href="#leituras">Ao vivo</a><a href="#consumo">Consumo</a><a href="#dispositivo">Dispositivo</a></nav><header><p class="muted">MONITORAMENTO • HORÁRIO DE BRASÍLIA</p><h1>Painel de energia</h1>
+<main><nav class="top"><b>⚡ Energia</b><a href="/gestao">Início e custos</a><a href="#leituras">Ao vivo</a><a href="#consumo">Consumo</a><a href="#dispositivo">Dispositivo</a></nav><header><p class="muted">MONITORAMENTO • HORÁRIO DE BRASÍLIA</p><h1>Painel de energia</h1>
 <p>{{ ('Última leitura: ' ~ last_time) if last_time else 'Aguardando a primeira leitura MQTT.' }}</p></header>
 <div class="grid">{% for key,(name,size) in periods.items() %}<div class="card">{{ name }}<strong>{{ fmt(totals[key]) }}{% if totals[key] is not none %} kWh{% endif %}</strong></div>{% endfor %}</div>
 <section id="leituras"><h2>Energia minuto a minuto</h2>
@@ -33,7 +33,7 @@ section{scroll-margin-top:14px}
 <details><summary>Ver valores em tabela</summary><table><thead><tr><th>Intervalo</th><th>kWh</th></tr></thead><tbody>{% for label,value in points %}<tr><td>{{label}}</td><td>{{fmt(value)}}</td></tr>{% endfor %}</tbody></table></details>
 {% else %}<p>São necessárias pelo menos duas leituras válidas do contador acumulado para calcular consumo neste período.</p>{% endif %}
 <p class="muted">Diferenças do contador em kWh são atribuídas ao horário da leitura final. “—” indica ausência de dados. O período atual é parcial.{% if resets or gaps %} No histórico analisado: {{resets}} reinícios do contador e {{gaps}} intervalos acima de 5 minutos. Um intervalo longo pode deslocar consumo entre períodos.{% endif %}</p></section>
-<section id="dispositivo"><h2>ESP32</h2><form method="post" action="/?periodo={{period}}"><label for="ip">IP local do Tasmota</label><br><input id="ip" name="ip" value="{{ip}}" required> <button>Salvar IP</button></form>
+<section id="dispositivo"><h2>ESP32</h2><form method="post" action="/leituras?periodo={{period}}"><label for="ip">IP local do Tasmota</label><br><input id="ip" name="ip" value="{{ip}}" required> <button>Salvar IP</button></form>
 <p><a href="http://{{ip}}/">Abrir Tasmota na rede local</a></p><p class="muted">A coleta continua pelo MQTT mesmo com o painel fechado.</p>
 {% if latest %}<details><summary>Dados da última leitura</summary><pre>{{latest[1]|tojson(indent=2)}}</pre></details>{% endif %}</section></main>
 <script>
