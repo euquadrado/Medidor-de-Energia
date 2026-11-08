@@ -1,12 +1,12 @@
 import ipaddress
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from energy import PERIODS, ZONE, start_of, summarize
 import json
 import logging
 import os
 
 import psycopg
-from flask import Flask, redirect, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request
 from paho.mqtt import client as mqtt
 from psycopg.types.json import Jsonb
 from waitress import serve
@@ -27,6 +27,7 @@ def initialize():
             received_at timestamptz NOT NULL DEFAULT now(),
             topic text NOT NULL, payload jsonb NOT NULL
         )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS readings_topic_time ON readings (topic, received_at, id)")
         conn.execute("""CREATE TABLE IF NOT EXISTS settings (
             name text PRIMARY KEY, value text NOT NULL
         )""")
@@ -101,6 +102,33 @@ def panel():
         ip=row[0] if row else "10.216.233.22", latest=latest, resets=resets,gaps=gaps,
         last_time=latest[0].astimezone(ZONE).strftime("%d/%m/%Y %H:%M") if latest else None)
 
+@app.get("/api/minutos")
+def minute_readings():
+    today = datetime.now(ZONE).date()
+    try:
+        day = date.fromisoformat(request.args.get("dia", today.isoformat()))
+        if not date(2000, 1, 1) <= day <= today:
+            raise ValueError()
+    except ValueError:
+        return jsonify(error="Data inválida"), 400
+    begin = datetime.combine(day, time.min, ZONE)
+    end = datetime.combine(day + timedelta(days=1), time.min, ZONE)
+    with db() as conn:
+        rows = conn.execute("""SELECT DISTINCT ON (minute) minute, received_at,
+             payload->'ENERGY' AS energy
+          FROM (SELECT date_trunc('minute', received_at) AS minute, received_at, payload, id
+                FROM readings WHERE topic=%s AND received_at >= %s AND received_at < %s
+                 AND jsonb_typeof(payload->'ENERGY')='object') source
+          ORDER BY minute, received_at DESC, id DESC""", (TOPIC, begin, end)).fetchall()
+    response = jsonify(day=day.isoformat(), today=today.isoformat(), points=[
+        {"minute": stamp.astimezone(ZONE).hour * 60 + stamp.astimezone(ZONE).minute,
+         "received": received.astimezone(ZONE).isoformat(),
+         **{key: energy.get(key) for key in ("Power", "Total", "Today", "Voltage", "Current")}}
+        for stamp, received, energy in rows
+    ])
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
 if __name__ == "__main__":
     initialize()
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="medidor-collector",
@@ -112,6 +140,7 @@ if __name__ == "__main__":
     client.connect_async(os.environ["MQTT_HOST"], 8883, keepalive=60)
     client.loop_start()
     serve(app, host="0.0.0.0", port=8080)
+
 
 
 

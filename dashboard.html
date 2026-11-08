@@ -3,10 +3,27 @@
 <title>Painel de energia</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#eff5f4;color:#17332e;font:16px system-ui}main{max-width:980px;margin:auto;padding:24px}header{padding:18px 0}h1{font-size:clamp(2rem,6vw,3.5rem);margin:0}h2{margin-top:0}.muted{color:#49605b}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}.card,section{background:#fff;border:1px solid #d9e5e1;border-radius:16px;padding:18px;margin-bottom:14px}strong{display:block;font-size:1.45rem;margin-top:6px}nav{display:flex;gap:8px;flex-wrap:wrap}a,button{color:#07594b}nav a,button{border:1px solid #bdd1cb;padding:8px 12px;border-radius:8px;background:white;text-decoration:none}nav a[aria-current=true],button{background:#07594b;color:white}.plot{display:flex;align-items:end;height:180px;gap:3px;margin:16px 0}.slot{flex:1;min-width:0;display:flex;align-items:end;height:100%;border-bottom:1px solid #ccdcd7}.bar{width:100%;border-radius:4px 4px 0 0;background:#087d68}.empty{background:#e3edeb}input{max-width:100%;padding:8px;border:1px solid #8ca9a1;border-radius:8px}details{margin-top:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:6px;border-bottom:1px solid #ddd}pre{overflow:auto}
+body{background:radial-gradient(ellipse at top right,#203158,transparent 60%),#0a1220;color:#ecf3fa}
+.card,section{background:#121f32;border-color:#2c3d55}.muted{color:#a8b8cb}a{color:#5eead4}
+nav a,button,input,select{background:#0c1727;color:#ecf3fa;border:1px solid #48617a;border-radius:8px;padding:8px}
+nav a[aria-current=true],button{background:#2dd4bf;color:#06121f}
+.bar{background:#2dd4bf}.empty{background:#40536a}.slot,td,th{border-color:#40536a}
+.controls{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}.controls label{display:grid;gap:4px}
+#minute-chart{display:block;width:100%;height:auto;touch-action:pan-y}svg text{fill:#a8b8cb;font:13px system-ui}
+.table-scroll{max-height:300px;overflow:auto}
 </style>
 <main><header><p class="muted">MONITORAMENTO • HORÁRIO DE BRASÍLIA</p><h1>Painel de energia</h1>
 <p>{{ ('Última leitura: ' ~ last_time) if last_time else 'Aguardando a primeira leitura MQTT.' }}</p></header>
 <div class="grid">{% for key,(name,size) in periods.items() %}<div class="card">{{ name }}<strong>{{ fmt(totals[key]) }}{% if totals[key] is not none %} kWh{% endif %}</strong></div>{% endfor %}</div>
+<section><h2>Energia minuto a minuto</h2>
+<div class="controls"><label>Dia <input id="day" type="date"></label>
+<label>Medição <select id="metric"><option value="Power">Potência (W)</option><option value="Today">Energia do dia (kWh)</option><option value="Total">Energia acumulada (kWh)</option><option value="Voltage">Tensão (V)</option><option value="Current">Corrente (A)</option></select></label></div>
+<p id="live-status" class="muted" role="status">Buscando leituras…</p>
+<svg id="minute-chart" viewBox="0 0 720 230" role="img" aria-label="Gráfico do dia minuto a minuto"></svg>
+<label for="cursor">Consultar minuto <output id="minute-value"></output></label>
+<input id="cursor" type="range" min="0" max="1439" value="0" style="width:100%">
+<details><summary>Ver leituras do dia em tabela</summary><div class="table-scroll"><table><thead><tr><th>Hora</th><th>W</th><th>kWh do dia</th><th>kWh total</th><th>V</th><th>A</th></tr></thead><tbody id="minute-rows"></tbody></table></div></details>
+<p class="muted">Horário de Brasília. Cada ponto mostra a última leitura daquele minuto. As lacunas indicam minutos sem leitura.</p></section>
 <section><h2>Consumo por período</h2><nav aria-label="Período">{% for key,(name,size) in periods.items() %}<a href="?periodo={{key}}" aria-current="{{'true' if key==period else 'false'}}">{{name}}</a>{% endfor %}</nav>
 {% if totals[period] is not none %}
 <div class="plot" aria-hidden="true">{% for label,value in points %}<div class="slot" title="{{label}}: {{fmt(value)}}"><div class="bar {{'empty' if value is none}}" style="height:{{max_height(value, peak)}}%"></div></div>{% endfor %}</div>
@@ -15,4 +32,56 @@
 <p class="muted">Diferenças do contador em kWh são atribuídas ao horário da leitura final. “—” indica ausência de dados. O período atual é parcial.{% if resets or gaps %} No histórico analisado: {{resets}} reinícios do contador e {{gaps}} intervalos acima de 5 minutos. Um intervalo longo pode deslocar consumo entre períodos.{% endif %}</p></section>
 <section><h2>ESP32</h2><form method="post" action="/?periodo={{period}}"><label for="ip">IP local do Tasmota</label><br><input id="ip" name="ip" value="{{ip}}" required> <button>Salvar IP</button></form>
 <p><a href="http://{{ip}}/">Abrir Tasmota na rede local</a></p><p class="muted">A coleta continua pelo MQTT mesmo com o painel fechado.</p>
-{% if latest %}<details><summary>Dados da última leitura</summary><pre>{{latest[1]|tojson(indent=2)}}</pre></details>{% endif %}</section></main></html>
+{% if latest %}<details><summary>Dados da última leitura</summary><pre>{{latest[1]|tojson(indent=2)}}</pre></details>{% endif %}</section></main>
+<script>
+const $ = id => document.getElementById(id);
+const day = $('day'), metric = $('metric'), cursor = $('cursor'), chart = $('minute-chart');
+const keys = ['Power','Today','Total','Voltage','Current'];
+const units = {Power:'W',Today:'kWh',Total:'kWh',Voltage:'V',Current:'A'};
+const fmt = n => typeof n === 'number' ? n.toLocaleString('pt-BR',{maximumFractionDigits:3}) : '—';
+const hh = m => String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+let points = new Map(), follow = true, loading = false, rerun = false;
+function focusMinute() {
+  const m = Number(cursor.value), v = points.get(m)?.[metric.value];
+  $('minute-value').textContent = hh(m)+' · '+(typeof v==='number' ? fmt(v)+' '+units[metric.value] : 'sem leitura');
+  const marker = $('chart-marker');
+  if(marker) { marker.setAttribute('x1', 54+m/1439*650); marker.setAttribute('x2', 54+m/1439*650); }
+}
+function draw() {
+  const x=m=>54+m/1439*650, vals=[...points.values()].map(p=>p[metric.value]).filter(Number.isFinite);
+  const min=vals.length?Math.min(0,...vals):0, max=vals.length?Math.max(...vals,min+0.001):1;
+  const y=v=>185-(v-min)/(max-min)*153;
+  let lines='', prev=null, grid='';
+  for(let i=0;i<=4;i++){const v=min+(max-min)*i/4, py=y(v);grid+=`<path d="M54 ${py}H704" stroke="#40536a"/><text x="48" y="${py+4}" text-anchor="end">${fmt(v)}</text>`;}
+  for(const m of [0,360,720,1080,1439]) grid+=`<text x="${x(m)}" y="212" text-anchor="${m===1439?'end':'middle'}">${hh(m)}</text>`;
+  for(const [m,p] of points){const v=p[metric.value];if(!Number.isFinite(v)){prev=null;continue;}
+    const px=x(m),py=y(v);if(prev&&m===prev[0]+1)lines+=`<path d="M${prev[1]} ${prev[2]}L${px} ${py}" stroke="#2dd4bf" stroke-width="2"/>`;
+    lines+=`<circle cx="${px}" cy="${py}" r="1.5" fill="#2dd4bf"/>`;prev=[m,px,py];}
+  chart.innerHTML=grid+lines+'<line id="chart-marker" y1="30" y2="185" stroke="#818cf8" stroke-dasharray="4 4"/>';
+  focusMinute();
+}
+async function load() {
+  if(loading){rerun=true;return;} loading=true;
+  const selected=day.value;
+  try {
+    const res=await fetch('/api/minutos'+(selected?'?dia='+encodeURIComponent(selected):''),{cache:'no-store'});
+    if(!res.ok) throw Error(res.status);
+    const d=await res.json();
+    if(day.value!==selected)return;
+    day.max=d.today; if(!day.value)day.value=d.day;
+    points=new Map(d.points.map(p=>[p.minute,p]));
+    $('live-status').textContent=d.points.length
+      ? d.points.length+' minutos com leitura · última às '+hh(d.points.at(-1).minute)+(d.day===d.today?' · atualização a cada 5 s':'')
+      : 'Nenhuma leitura MQTT registrada neste dia.';
+    if(follow&&d.points.length)cursor.value=d.points.at(-1).minute;
+    $('minute-rows').innerHTML=d.points.map(p=>'<tr><td>'+hh(p.minute)+'</td>'+keys.map(k=>'<td>'+fmt(p[k])+'</td>').join('')+'</tr>').join('');
+    draw();
+  } catch(e){$('live-status').textContent='Não foi possível atualizar. Confira a conexão com o servidor.';}
+  finally{loading=false;if(rerun){rerun=false;load();}}
+}
+cursor.oninput=()=>{follow=false;focusMinute();}; metric.onchange=draw;
+day.onchange=()=>{follow=true;load();};
+chart.onclick=e=>{const r=chart.getBoundingClientRect();cursor.value=Math.max(0,Math.min(1439,Math.round(((e.clientX-r.left)/r.width*720-54)*1439/650)));follow=false;focusMinute();};
+load();setInterval(()=>{if(!day.value||day.value===day.max)load();},5000);
+</script></html>
+
