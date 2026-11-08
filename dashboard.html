@@ -14,8 +14,42 @@ nav a[aria-current=true],button{background:#2dd4bf;color:#06121f}
 .top{align-items:center;padding-bottom:12px;border-bottom:1px solid #40536a}.top b{margin-right:auto;color:#5eead4}
 header{padding:28px 0}h1{background:linear-gradient(120deg,#5eead4,#38bdf8,#a5b4fc);background-clip:text;color:transparent}
 section{scroll-margin-top:14px}
+/* Visual do painel, sem mudanças nas rotas ou na coleta. */
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+main{max-width:1100px;padding:clamp(14px,4vw,36px)}
+main>nav{gap:8px;padding:10px 0 16px;border-bottom:1px solid var(--line,#314661);margin-bottom:20px}
+main>nav b{font-size:1.15rem;letter-spacing:-.02em;margin-right:auto}
+main>nav a,nav[aria-label] a,.actions a,button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;line-height:1.2}
+main>nav a:hover,nav[aria-label] a:hover,.actions a:hover{outline:1px solid currentColor}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #38bdf8;outline-offset:3px}
+header{padding:20px 0 24px;margin:0 0 8px}
+header>p:first-child{margin:0 0 6px;font-size:.76rem;font-weight:750;letter-spacing:.12em}
+h1{font-size:clamp(2rem,6vw,3.5rem);line-height:1.08;letter-spacing:-.04em;margin:0 0 14px;overflow-wrap:anywhere}
+h2{font-size:clamp(1.16rem,3vw,1.45rem);line-height:1.25;letter-spacing:-.025em}
+section,.card{border-radius:18px;padding:clamp(14px,3vw,23px)}
+section{margin-bottom:16px;scroll-margin-top:12px}
+.grid{gap:12px}.card{min-width:0;margin-bottom:0}.card strong{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+input:not([type=checkbox]):not([type=range]),select{min-height:44px}summary{cursor:pointer;padding:8px 0;font-weight:650}
+th,td{font-variant-numeric:tabular-nums}th{font-size:.85rem}
+@media(max-width:600px){
+ main>nav b{flex:0 0 100%}
+ main>nav a{flex:1 1 calc(50% - 8px);text-align:center}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .card strong{font-size:clamp(1.1rem,4.6vw,1.45rem)}
+ .actions{gap:6px}.actions a.btn{flex:1 1 auto}
+}
+@media print{main>nav{display:none!important}section,.card{box-shadow:none}}
+main>nav a{border-color:#405674}
+#leituras{border-color:#3b6879}
+#minute-chart{background:#0b1626;border-radius:12px;margin:10px 0}
+.controls label{font-size:.87rem;color:#bcd1e6}
+.controls input,.controls select{font-size:1rem}
+#live-status{padding:9px 12px;background:#102a3a;border-radius:8px}
+#minute-value{font-weight:700;color:#73f0dc}
+#dispositivo input{width:min(100%,240px)}
+@media(max-width:600px){.controls label{flex:1 1 135px}.table-scroll{overflow:auto}}
 </style>
-<main><nav class="top"><b>⚡ Energia</b><a href="/gestao">Início e custos</a><a href="#leituras">Ao vivo</a><a href="#consumo">Consumo</a><a href="#dispositivo">Dispositivo</a></nav><header><p class="muted">MONITORAMENTO • HORÁRIO DE BRASÍLIA</p><h1>Painel de energia</h1>
+<main><nav class="top"><b>⚡ Energia</b><a href="/gestao">Resumo e custos</a><a href="#leituras">Ao vivo</a><a href="#consumo">Consumo</a><a href="#dispositivo">Dispositivo</a></nav><header><p class="muted">MONITORAMENTO • HORÁRIO DE BRASÍLIA</p><h1>Painel de energia</h1>
 <p>{{ ('Última leitura: ' ~ last_time) if last_time else 'Aguardando a primeira leitura MQTT.' }}</p></header>
 <div class="grid">{% for key,(name,size) in periods.items() %}<div class="card">{{ name }}<strong>{{ fmt(totals[key]) }}{% if totals[key] is not none %} kWh{% endif %}</strong></div>{% endfor %}</div>
 <section id="leituras"><h2>Energia minuto a minuto</h2>
@@ -33,7 +67,7 @@ section{scroll-margin-top:14px}
 <details><summary>Ver valores em tabela</summary><table><thead><tr><th>Intervalo</th><th>kWh</th></tr></thead><tbody>{% for label,value in points %}<tr><td>{{label}}</td><td>{{fmt(value)}}</td></tr>{% endfor %}</tbody></table></details>
 {% else %}<p>São necessárias pelo menos duas leituras válidas do contador acumulado para calcular consumo neste período.</p>{% endif %}
 <p class="muted">Diferenças do contador em kWh são atribuídas ao horário da leitura final. “—” indica ausência de dados. O período atual é parcial.{% if resets or gaps %} No histórico analisado: {{resets}} reinícios do contador e {{gaps}} intervalos acima de 5 minutos. Um intervalo longo pode deslocar consumo entre períodos.{% endif %}</p></section>
-<section id="dispositivo"><h2>ESP32</h2><form method="post" action="/leituras?periodo={{period}}"><label for="ip">IP local do Tasmota</label><br><input id="ip" name="ip" value="{{ip}}" required> <button>Salvar IP</button></form>
+<section id="dispositivo"><h2>Configuração do medidor</h2><form method="post" action="/leituras?periodo={{period}}"><label for="ip">IP local do Tasmota</label><br><input id="ip" name="ip" value="{{ip}}" required> <button>Salvar IP</button></form>
 <p><a href="http://{{ip}}/">Abrir Tasmota na rede local</a></p><p class="muted">A coleta continua pelo MQTT mesmo com o painel fechado.</p>
 {% if latest %}<details><summary>Dados da última leitura</summary><pre>{{latest[1]|tojson(indent=2)}}</pre></details>{% endif %}</section></main>
 <script>

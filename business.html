@@ -15,9 +15,40 @@ label{display:block}input[type=checkbox]{width:auto}.fields{display:grid;grid-te
 .bar{position:relative;height:12px;border-radius:8px;background:var(--line);margin:10px 0}.fill{height:100%;border-radius:inherit;background:var(--accent)}.marker{position:absolute;top:-3px;height:18px;border-left:2px solid var(--fg)}
 table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}.scroll{overflow:auto}.offline{opacity:.58}.alert{padding:10px;border-left:3px solid #ec9d22}
 @media print{body,section,.card{background:white;color:black}nav,.actions,.noprint{display:none!important}section{break-inside:avoid}}
+/* Visual do painel, sem mudanças nas rotas ou na coleta. */
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+main{max-width:1100px;padding:clamp(14px,4vw,36px)}
+main>nav{gap:8px;padding:10px 0 16px;border-bottom:1px solid var(--line,#314661);margin-bottom:20px}
+main>nav b{font-size:1.15rem;letter-spacing:-.02em;margin-right:auto}
+main>nav a,nav[aria-label] a,.actions a,button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;line-height:1.2}
+main>nav a:hover,nav[aria-label] a:hover,.actions a:hover{outline:1px solid currentColor}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #38bdf8;outline-offset:3px}
+header{padding:20px 0 24px;margin:0 0 8px}
+header>p:first-child{margin:0 0 6px;font-size:.76rem;font-weight:750;letter-spacing:.12em}
+h1{font-size:clamp(2rem,6vw,3.5rem);line-height:1.08;letter-spacing:-.04em;margin:0 0 14px;overflow-wrap:anywhere}
+h2{font-size:clamp(1.16rem,3vw,1.45rem);line-height:1.25;letter-spacing:-.025em}
+section,.card{border-radius:18px;padding:clamp(14px,3vw,23px)}
+section{margin-bottom:16px;scroll-margin-top:12px}
+.grid{gap:12px}.card{min-width:0;margin-bottom:0}.card strong{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+input:not([type=checkbox]):not([type=range]),select{min-height:44px}summary{cursor:pointer;padding:8px 0;font-weight:650}
+th,td{font-variant-numeric:tabular-nums}th{font-size:.85rem}
+@media(max-width:600px){
+ main>nav b{flex:0 0 100%}
+ main>nav a{flex:1 1 calc(50% - 8px);text-align:center}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .card strong{font-size:clamp(1.1rem,4.6vw,1.45rem)}
+ .actions{gap:6px}.actions a.btn{flex:1 1 auto}
+}
+@media print{main>nav{display:none!important}section,.card{box-shadow:none}}
+header:not(:has(button[onclick])){border-radius:22px;background:linear-gradient(130deg,var(--card) 30%,var(--bg));border:1px solid var(--line);padding:clamp(18px,4vw,32px)}
+.grid>.card:first-child{background:linear-gradient(130deg,#093f3c,#13354c);color:#f0fffd;border-color:#218d7c}
+.grid>.card:first-child strong{font-size:clamp(1.35rem,4vw,2.25rem);line-height:1.1}
+.grid>.card:first-child a{color:#9af8eb}
+#dados details{border-top:1px solid var(--line);margin-top:16px;padding-top:8px}
+#dados details button{border-color:#ce6576;color:#df697b;font-weight:650}
 </style>
 <main>
-<nav class="noprint"><b>⚡ Energia</b><a class="btn" href="/gestao">Início</a><a class="btn" href="/leituras">Minuto a minuto</a><a class="btn" href="#ajustes">Ajustes</a><a class="btn" href="#dados">Dados</a></nav>
+<nav class="noprint"><b>⚡ Energia</b><a class="btn" href="/gestao">Início</a><a class="btn" href="/leituras">Gráfico ao vivo</a><a class="btn" href="#ajustes">Ajustes</a><a class="btn" href="#dados">Exportar e backup</a></nav>
 <header><p class="muted">{{ 'RELATÓRIO DE ENERGIA' if report else 'CONSUMO E CUSTO DE ENERGIA' }}</p><h1>{{cfg.store}}</h1>
 <div class="actions">{% for key,label in [('hoje','Hoje'),('ontem','Ontem'),('mes','Este mês')] %}<a class="btn {{'current' if key==period}}" href="{{'/relatorio' if report else '/gestao'}}?periodo={{key}}">{{label}}</a>{% endfor %}
 {% if not report %}<form method="post" action="/gestao/ajustes"><button name="toggle" value="1">{{'Sair do modo fechado' if cfg.closed else 'Ativar modo fechado'}}</button></form>{% endif %}
@@ -49,7 +80,7 @@ table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px;bord
 <label>Tema<select name="theme">{% for k,n in [('auto','Automático'),('light','Claro'),('dark','Escuro')] %}<option value="{{k}}" {{'selected' if cfg.theme==k}}>{{n}}</option>{% endfor %}</select></label></div>
 <p><label><input type="checkbox" name="sunday" {{'checked' if cfg.sunday}}> Fecha aos domingos</label><label><input type="checkbox" name="closed" {{'checked' if cfg.closed}}> Modo fechado</label></p><button class="primary">Salvar ajustes</button> <a href="/leituras#dispositivo">Editar IP do Tasmota</a></form>
 <small>O relatório aplica o horário e o modo fechado configurados às leituras exibidas.</small></section>
-<section id="dados"><h2>Dados e backup</h2><a class="btn" href="/gestao/backup">Baixar backup dos dados</a><p class="muted">Arquivo JSONL compactado com leituras, ajustes e manutenção. Não contém senhas. Guarde a cópia antes de excluir dados.</p>
+<section id="dados"><h2>Exportação e backup</h2><a class="btn" href="/gestao/backup">Baixar backup dos dados</a><p class="muted">Arquivo JSONL compactado com leituras, ajustes e manutenção. Não contém senhas. Guarde a cópia antes de excluir dados.</p>
 {% if request.args.get('excluidas','').isdigit() %}<p role="status">{{request.args.get('excluidas')}} leituras excluídas.</p>{% endif %}
 <details><summary>Excluir leituras antigas</summary><form method="post" action="/gestao/excluir"><div class="fields"><label>Excluir tudo antes de<input type="date" name="before" max="{{today}}" required></label><label>Digite EXCLUIR<input name="confirm" required autocomplete="off"></label></div><button>Excluir leituras</button></form></details></section>
 {% if support %}<a href="https://wa.me/{{support|urlencode}}?text={{(cfg.store ~ ' · Medidor D2A95C')|urlencode}}" target="_blank" rel="noopener">Suporte pelo WhatsApp</a>{% endif %}
