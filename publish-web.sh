@@ -38,14 +38,14 @@ if [[ ! -f /etc/nginx/medidor-conf/medidor.htpasswd ]]; then
     chown root:101 /etc/nginx/medidor-conf/medidor.htpasswd
     chmod 640 /etc/nginx/medidor-conf/medidor.htpasswd
 fi
-cat >/etc/nginx/medidor-conf/http.confs <<EOF
+cat >/etc/nginx/medidor-conf/https.conf <<EOF
 server {
     listen 443 ssl;
     server_name $ip;
     ssl_certificate /etc/letsencrypt/live/$ip/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$ip/privkey.pem;
     auth_basic "Painel de energia";
-    auth_basic_user_file /etc/nginx/medidor-conf/medidor.htpasswd;
+    auth_basic_user_file /etc/nginx/conf.d/medidor.htpasswd;
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host \$host;
@@ -58,4 +58,6 @@ reload_nginx
 cat >/etc/cron.d/medidor-cert-renew <<'EOF'
 23 2,14 * * * root /usr/bin/docker run --rm -v /etc/letsencrypt:/etc/letsencrypt -v /var/www/medidor-acme:/var/www/medidor-acme certbot/certbot:v5.4.0 renew -q && /usr/bin/docker exec medidor-web nginx -s reload
 EOF
+
+
 
