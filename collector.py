@@ -6,7 +6,8 @@ import logging
 import os
 
 import psycopg
-from flask import Flask, jsonify, redirect, render_template, request
+from werkzeug.security import check_password_hash
+from flask import Flask, Response, jsonify, redirect, render_template, request
 from paho.mqtt import client as mqtt
 from psycopg.types.json import Jsonb
 from waitress import serve
@@ -27,11 +28,37 @@ def initialize():
             received_at timestamptz NOT NULL DEFAULT now(),
             topic text NOT NULL, payload jsonb NOT NULL
         )""")
+        conn.execute("CREATE TABLE IF NOT EXISTS web_users (username text PRIMARY KEY, password_hash text NOT NULL)")
         conn.execute("CREATE INDEX IF NOT EXISTS readings_topic_time ON readings (topic, received_at, id)")
         conn.execute("""CREATE TABLE IF NOT EXISTS settings (
             name text PRIMARY KEY, value text NOT NULL
         )""")
 
+
+@app.before_request
+def authenticate():
+    auth = request.authorization
+    if auth and auth.type == "basic" and auth.username and auth.password:
+        with db() as conn:
+            user = conn.execute("SELECT password_hash FROM web_users WHERE username=%s",
+                                (auth.username,)).fetchone()
+        if user and check_password_hash(user[0], auth.password):
+            return None
+    return Response("Entre com o usuário e a senha do painel.", 401,
+                    {"WWW-Authenticate": 'Basic realm="Energia", charset="UTF-8"',
+                     "Cache-Control": "no-store"})
+
+
+def metric_value(energy, key):
+    if key == "Power" and isinstance(energy.get("PowerTotal"), (int, float)):
+        return energy["PowerTotal"]
+    value = energy.get(key)
+    if isinstance(value, list):
+        values = [v for v in value if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        if not values:
+            return None
+        return sum(values) / len(values) if key == "Voltage" else sum(values)
+    return value
 
 def on_connect(client, userdata, flags, reason, properties):
     if reason.is_failure:
@@ -123,7 +150,7 @@ def minute_readings():
     response = jsonify(day=day.isoformat(), today=today.isoformat(), points=[
         {"minute": stamp.astimezone(ZONE).hour * 60 + stamp.astimezone(ZONE).minute,
          "received": received.astimezone(ZONE).isoformat(),
-         **{key: energy.get(key) for key in ("Power", "Total", "Today", "Voltage", "Current")}}
+         **{key: metric_value(energy, key) for key in ("Power", "Total", "Today", "Voltage", "Current")}}
         for stamp, received, energy in rows
     ])
     response.headers["Cache-Control"] = "no-store"
@@ -140,7 +167,3 @@ if __name__ == "__main__":
     client.connect_async(os.environ["MQTT_HOST"], 8883, keepalive=60)
     client.loop_start()
     serve(app, host="0.0.0.0", port=8080)
-
-
-
-

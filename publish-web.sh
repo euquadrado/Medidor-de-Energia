@@ -30,26 +30,18 @@ reload_nginx
 if [[ "${1:-}" == prepare ]]; then exit 0; fi
 certbot certonly --non-interactive --agree-tos --register-unsafely-without-email \
     --preferred-profile shortlived --webroot -w "$webroot" --ip-address "$ip"
-umask 077
-if [[ ! -f /etc/nginx/medidor-conf/medidor.htpasswd ]]; then
-    secret=$(openssl rand -hex 24)
-    printf '%s\n' "$secret" >/root/medidor-web-password
-    printf 'medidor:%s\n' "$(printf '%s\n' "$secret" | openssl passwd -6 -stdin)" >/etc/nginx/medidor-conf/medidor.htpasswd
-    chown root:101 /etc/nginx/medidor-conf/medidor.htpasswd
-    chmod 640 /etc/nginx/medidor-conf/medidor.htpasswd
-fi
 cat >/etc/nginx/medidor-conf/https.conf <<EOF
 server {
     listen 443 ssl;
     server_name $ip;
     ssl_certificate /etc/letsencrypt/live/$ip/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$ip/privkey.pem;
-    auth_basic "Painel de energia";
-    auth_basic_user_file /etc/nginx/conf.d/medidor.htpasswd;
+
+
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host \$host;
-        proxy_set_header Authorization "";
+
         proxy_set_header X-Forwarded-Proto https;
     }
 }
@@ -58,6 +50,3 @@ reload_nginx
 cat >/etc/cron.d/medidor-cert-renew <<'EOF'
 23 2,14 * * * root /usr/bin/docker run --rm -v /etc/letsencrypt:/etc/letsencrypt -v /var/www/medidor-acme:/var/www/medidor-acme certbot/certbot:v5.4.0 renew -q && /usr/bin/docker exec medidor-web nginx -s reload
 EOF
-
-
-

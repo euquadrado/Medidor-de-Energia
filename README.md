@@ -54,7 +54,18 @@ podem deslocar consumo entre periodos.
 Para publicar no IPv4 indicado em publish-web.sh, libere TCP 80 e 443
 no grupo de seguranca. Na EC2 execute sudo bash publish-web.sh prepare,
 confirme que /.well-known/acme-challenge/ responde externamente, e rode
-sudo bash publish-web.sh. O login e medidor; a senha e obtida com
-sudo cat /root/medidor-web-password. O arquivo em /etc/cron.d agenda
+sudo bash publish-web.sh. Configure o login conforme a secao abaixo. O arquivo em /etc/cron.d agenda
 a renovacao do certificado IP. Mantenha o painel privado no bind
 127.0.0.1:8080 atras do Nginx.
+
+### Login do painel
+
+O backend valida o login na tabela web_users, que guarda somente o hash.
+Para criar ou trocar a senha do usuario admin, na EC2 execute:
+
+    read -rs -p 'Nova senha: ' senha; echo
+    printf '%s\n' "$senha" | sudo docker compose exec -T collector python -c 'import sys; from collector import db; from werkzeug.security import generate_password_hash; p=sys.stdin.readline().rstrip("\n"); assert p; c=db(); c.execute("INSERT INTO web_users VALUES (%s,%s) ON CONFLICT (username) DO UPDATE SET password_hash=EXCLUDED.password_hash", ("admin",generate_password_hash(p))); c.commit()'
+    unset senha
+
+A senha e independente do MQTT e do login PostgreSQL. Nginx termina
+o HTTPS; o Python protege tanto o painel quanto a API.
